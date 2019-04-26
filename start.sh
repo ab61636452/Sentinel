@@ -1,4 +1,4 @@
-cd /sentinel-dashboard
+cd sentinel-dashboard
 
 mvn clean package -U -e -Dmaven.normal.skip=true  -Dmaven.test.skip=true
 
