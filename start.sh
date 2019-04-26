@@ -12,4 +12,4 @@ docker build --pull=true -t hub.mzh.com:sentinel-dashboard ./
 
 docker rm -f sentinel-dashboard
 
-docker run -d --name=sentinel-dashboard hub.mzh.com:sentinel-dashboard
+docker run -d -p4040:8080 --name=sentinel-dashboard hub.mzh.com:sentinel-dashboard
