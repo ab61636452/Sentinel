@@ -16,6 +16,8 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <spring.boot.version>2.0.5.RELEASE</spring.boot.version>
+        <lettuce.version>5.0.1.RELEASE</lettuce.version>
+        <redis.mock.version>0.1.6</redis.mock.version>
     </properties>
 
     <dependencies>
@@ -92,6 +94,13 @@
             <artifactId>fastjson</artifactId>
         </dependency>
 
+        <!-- for Redis rule persistence -->
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <version>${lettuce.version}</version>
+        </dependency>
+
         <!-- for Nacos rule publisher sample -->
         <dependency>
             <groupId>com.alibaba.csp</groupId>
@@ -117,6 +126,23 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>com.alibaba.csp</groupId>
+            <artifactId>sentinel-datasource-redis</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>ai.grakn</groupId>
+            <artifactId>redis-mock</artifactId>
+            <version>${redis.mock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
         	<groupId>com.github.stefanbirkner</groupId>
         	<artifactId>system-rules</artifactId>
         	<version>1.16.1</version>
@@ -130,6 +156,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
                 <configuration>
                     <fork>true</fork>
                     <mainClass>com.alibaba.csp.sentinel.dashboard.DashboardApplication</mainClass>
