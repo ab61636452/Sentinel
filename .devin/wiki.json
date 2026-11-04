@@ -1,0 +1,52 @@
+{
+  "repo_notes": [
+    {
+      "content": "LANGUAGE REQUIREMENT: Write the entire wiki in Simplified Chinese (简体中文), including page titles, headings, body text, table contents, diagram captions and the 'Sources' / 'Relevant source files' labels. Do NOT translate code, commands, class names, method names, configuration keys, file paths or URLs. Keep proper nouns in English (e.g. Sentinel, Dashboard, FlowRule, DegradeRule, SystemRule, SphU, Slot Chain, Token Server); on first occurrence on a page you may add a short Chinese explanation in parentheses, e.g. FlowRule（流控规则）. Mermaid diagram node identifiers must stay as the real code symbols.",
+      "author": "Ethan"
+    },
+    {
+      "content": "Sentinel is Alibaba's flow-control, circuit-breaking and system adaptive protection framework for microservices, built as a Maven multi-module Java project. Modules: sentinel-core (Entry API, Context, ProcessorSlotChain, statistics via LeapArray/StatisticNode, rule managers), sentinel-extension (dynamic rule data sources: file, Nacos, ZooKeeper, Apollo, Redis; @SentinelResource AspectJ annotation support; parameter/hot-spot flow control), sentinel-transport (CommandCenter and HeartbeatSender implementations), sentinel-adapter (Servlet, Dubbo, Apache Dubbo, gRPC, Reactor, Spring WebFlux, API gateway common, Zuul, Spring Cloud Gateway), sentinel-cluster (token client, token server, cluster protocol), sentinel-dashboard (Spring Boot backend + AngularJS frontend), sentinel-demo (runnable examples) and sentinel-benchmark (JMH benchmarks).",
+      "author": "Ethan"
+    }
+  ],
+  "pages": [
+    {"title": "概述", "purpose": "Sentinel 的整体介绍：核心能力（流量控制、熔断降级、系统自适应保护）、整体架构与模块组成。"},
+    {"title": "快速开始", "purpose": "根据 README.md 介绍添加依赖、使用 SphU.entry 定义资源、定义 FlowRule、查看 metrics 日志以及启动 Dashboard 的步骤。", "parent": "概述"},
+    {"title": "构建系统与模块布局", "purpose": "说明根 pom.xml 的 Maven 多模块结构、依赖管理、构建插件以及各子模块之间的依赖关系。", "parent": "概述"},
+
+    {"title": "Sentinel 核心引擎", "purpose": "概述 sentinel-core 模块的运行时设计：资源、Entry、Context、Slot Chain、统计与规则体系。"},
+    {"title": "Entry API、Context 与 Slot Chain", "purpose": "详细说明 SphU / SphO / CtSph、Entry、Context、ContextUtil 以及 ProcessorSlotChain 和各 ProcessorSlot（NodeSelectorSlot、ClusterBuilderSlot、StatisticSlot、FlowSlot、DegradeSlot、SystemSlot、AuthoritySlot 等）的执行流程与 SPI 扩展。", "parent": "Sentinel 核心引擎"},
+    {"title": "统计与指标", "purpose": "说明 StatisticNode、DefaultNode、ClusterNode、EntranceNode、LeapArray 滑动窗口、MetricBucket 以及 metrics 日志的写入与读取。", "parent": "Sentinel 核心引擎"},
+    {"title": "规则与规则管理器", "purpose": "说明各类规则及其管理器：FlowRule / FlowRuleManager 的流量控制与流量整形（直接拒绝、Warm Up、匀速排队、关联与链路模式），DegradeRule / DegradeRuleManager 的熔断降级，AuthorityRule 的黑白名单控制，SystemRule / SystemRuleManager 的系统自适应保护，以及 SentinelProperty 规则动态更新机制。", "parent": "Sentinel 核心引擎"},
+    {"title": "配置、日志与工具类", "purpose": "说明 SentinelConfig 启动配置项、RecordLog 等日志体系、InitFunc / InitExecutor 初始化机制以及 sentinel-core 中的常用工具类。", "parent": "Sentinel 核心引擎"},
+
+    {"title": "扩展模块", "purpose": "概述 sentinel-extension 下各扩展模块的作用。"},
+    {"title": "动态规则数据源", "purpose": "说明 sentinel-datasource-extension 中的 ReadableDataSource / WritableDataSource 抽象，以及文件、Nacos、ZooKeeper、Apollo、Redis 等数据源实现与用法。", "parent": "扩展模块"},
+    {"title": "注解支持（@SentinelResource / AspectJ）", "purpose": "说明 sentinel-annotation-aspectj 中 @SentinelResource 注解的属性（fallback、defaultFallback、blockHandler、exceptionsToIgnore 等）与 SentinelResourceAspect 的实现，以及在 AspectJ 和 Spring AOP 中的配置。", "parent": "扩展模块"},
+    {"title": "热点参数流控", "purpose": "说明 sentinel-parameter-flow-control 中 ParamFlowRule、ParamFlowRuleManager、ParamFlowSlot、ParamFlowItem 及参数统计的实现与用法。", "parent": "扩展模块"},
+
+    {"title": "Transport 与 Command Center", "purpose": "说明 sentinel-transport 模块：CommandCenter 接口及 simple-http、netty-http 等实现，CommandHandler 命令处理，HeartbeatSender 心跳发送以及 TransportConfig 相关配置。"},
+
+    {"title": "框架适配器", "purpose": "概述 sentinel-adapter 下与主流框架的整合模块。"},
+    {"title": "Web 与 Servlet 适配器", "purpose": "说明 sentinel-web-servlet 中的 CommonFilter、UrlCleaner、UrlBlockHandler、RequestOriginParser 与 WebCallbackManager。", "parent": "框架适配器"},
+    {"title": "RPC 适配器（Dubbo、Apache Dubbo、gRPC）", "purpose": "说明 sentinel-dubbo-adapter、sentinel-apache-dubbo-adapter 与 sentinel-grpc-adapter 中的 consumer/provider filter、DubboAppContextFilter、DubboFallback 以及 gRPC 客户端/服务端拦截器。", "parent": "框架适配器"},
+    {"title": "响应式适配器（Reactor、Spring WebFlux）", "purpose": "说明 sentinel-reactor-adapter 中的 SentinelReactorTransformer，以及 sentinel-spring-webflux-adapter 中的 SentinelWebFluxFilter、SentinelBlockExceptionHandler 与 WebFluxCallbackManager。", "parent": "框架适配器"},
+    {"title": "API 网关适配器（Common、Zuul、Spring Cloud Gateway）", "purpose": "说明 sentinel-api-gateway-adapter-common 中的 GatewayFlowRule、ApiDefinition，以及 sentinel-zuul-adapter 和 sentinel-spring-cloud-gateway-adapter 的 filter、fallback 与回调机制。", "parent": "框架适配器"},
+
+    {"title": "集群流量控制", "purpose": "概述 sentinel-cluster 的集群限流架构、TokenService 与嵌入模式 / 独立模式。"},
+    {"title": "Token Client", "purpose": "说明 sentinel-cluster-client-default 中基于 Netty 的集群 token 客户端实现与配置。", "parent": "集群流量控制"},
+    {"title": "Token Server", "purpose": "说明 sentinel-cluster-server-default 中集群 token 服务端的实现、命名空间、连接管理与配置。", "parent": "集群流量控制"},
+    {"title": "集群通信协议与指标", "purpose": "说明 sentinel-cluster-common-default 中的集群通信协议、请求/响应编解码以及集群指标统计。", "parent": "集群流量控制"},
+
+    {"title": "Sentinel Dashboard", "purpose": "概述 sentinel-dashboard 控制台的功能、编译与启动方式和客户端接入方式。"},
+    {"title": "Dashboard 后端", "purpose": "说明 sentinel-dashboard 的 Spring Boot 后端：机器发现、规则管理 API、监控数据拉取与存储、登录认证。", "parent": "Sentinel Dashboard"},
+    {"title": "Dashboard 前端（AngularJS）", "purpose": "说明 sentinel-dashboard/src/main/webapp/resources 下 AngularJS 前端的结构、页面与构建方式。", "parent": "Sentinel Dashboard"},
+    {"title": "Dashboard 中的集群管理", "purpose": "说明在 Dashboard 中进行集群流控的 token server / client 分配与管理。", "parent": "Sentinel Dashboard"},
+
+    {"title": "示例与测试", "purpose": "概述 sentinel-demo 示例模块与 sentinel-benchmark 性能测试模块。"},
+    {"title": "示例应用", "purpose": "说明 sentinel-demo 下各示例（基础功能、数据源、Dubbo、RocketMQ、注解、Slot Chain SPI、集群等）的用途与运行方式。", "parent": "示例与测试"},
+    {"title": "测试与性能基准", "purpose": "说明项目的单元测试实践以及 sentinel-benchmark 中基于 JMH 的性能基准测试。", "parent": "示例与测试"},
+
+    {"title": "术语表", "purpose": "列出 Sentinel 中的关键术语（如 Resource、Entry、Context、Slot Chain、FlowRule、DegradeRule、SystemRule、BlockException、LeapArray、Token Server 等）并给出中文解释。"}
+  ]
+}
