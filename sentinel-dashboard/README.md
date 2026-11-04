@@ -46,6 +46,58 @@ java -Dserver.port=8080 \
 - `-Dsentinel.dashboard.auth.password=123456` 用于指定控制台的登录密码为 `123456`；如果省略这两个参数，默认用户和密码均为 `sentinel`；
 - `-Dserver.servlet.session.timeout=7200` 用于指定 Spring Boot 服务端 session 的过期时间，如 `7200` 表示 7200 秒；`60m` 表示 60 分钟，默认为 30 分钟；
 
+### 1.3 规则持久化到 Redis（可选）
+
+默认情况下控制台的规则只保存在内存中并直接推送到客户端机器，控制台或客户端重启后规则会丢失。
+开启 Redis 规则持久化后，控制台对 **流控 / 降级 / 系统 / 授权 / 热点** 规则的查询和修改都会改为读写 Redis：
+
+- 每个应用、每种规则对应一个 key：`{key-prefix}{app}:{type}`，值为规则列表的 JSON；
+- 每次修改规则后会（在同一个事务中）`SET` 该 key 并 `PUBLISH` 到 channel：`{channel-prefix}{app}:{type}`；
+- `type` 取值：`flow`、`degrade`、`system`、`authority`、`param-flow`；
+- 规则按应用维度存储，同一应用的所有机器共享同一份规则。
+
+启动参数示例（也可以写在 `application.properties`，或用环境变量如 `SENTINEL_RULE_REDIS_ENABLED=true`）：
+
+```bash
+java -Dsentinel.rule.redis.enabled=true \
+-Dsentinel.rule.redis.host=127.0.0.1 \
+-Dsentinel.rule.redis.port=6379 \
+-jar target/sentinel-dashboard.jar
+```
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|--------|
+| `sentinel.rule.redis.enabled` | `false` | 是否开启 Redis 规则持久化 |
+| `sentinel.rule.redis.host` | `localhost` | Redis 地址 |
+| `sentinel.rule.redis.port` | `6379` | Redis 端口 |
+| `sentinel.rule.redis.password` | 空 | Redis 密码 |
+| `sentinel.rule.redis.database` | `0` | Redis 库 |
+| `sentinel.rule.redis.timeout` | `3000` | 超时时间（毫秒） |
+| `sentinel.rule.redis.key-prefix` | `sentinel:rule:` | 规则 key 前缀 |
+| `sentinel.rule.redis.channel-prefix` | `sentinel:channel:` | 规则变更 channel 前缀 |
+
+客户端需引入 `sentinel-datasource-redis`，并使用相同的 key / channel 注册 `RedisDataSource`，例如（应用名为 `my-app`）：
+
+```java
+RedisConnectionConfig config = RedisConnectionConfig.builder()
+    .withHost("127.0.0.1")
+    .withPort(6379)
+    .build();
+
+ReadableDataSource<String, List<FlowRule>> flowRuleDataSource = new RedisDataSource<>(config,
+    "sentinel:rule:my-app:flow", "sentinel:channel:my-app:flow",
+    source -> JSON.parseObject(source, new TypeReference<List<FlowRule>>() {}));
+FlowRuleManager.register2Property(flowRuleDataSource.getProperty());
+
+ReadableDataSource<String, List<DegradeRule>> degradeRuleDataSource = new RedisDataSource<>(config,
+    "sentinel:rule:my-app:degrade", "sentinel:channel:my-app:degrade",
+    source -> JSON.parseObject(source, new TypeReference<List<DegradeRule>>() {}));
+DegradeRuleManager.register2Property(degradeRuleDataSource.getProperty());
+// system -> SystemRuleManager, authority -> AuthorityRuleManager, param-flow -> ParamFlowRuleManager
+```
+
+> 注意：开启后控制台不再通过 HTTP 直接向客户端推送规则，客户端必须按上述方式订阅 Redis 才能让规则生效。
+
 ## 2. 客户端接入
 
 选择合适的方式接入 Sentinel，然后在应用启动时加入 JVM 参数 `-Dcsp.sentinel.dashboard.server=consoleIp:port` 指定控制台地址和端口。

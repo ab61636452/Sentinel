@@ -42,6 +42,7 @@ import com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowRule;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
 import com.alibaba.csp.sentinel.util.AssertUtil;
 import com.alibaba.csp.sentinel.util.StringUtil;
+import com.alibaba.csp.sentinel.dashboard.rule.redis.RedisRuleStore;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.csp.sentinel.dashboard.datasource.entity.SentinelVersion;
 import com.alibaba.csp.sentinel.dashboard.datasource.entity.rule.AuthorityRuleEntity;
@@ -113,6 +114,7 @@ public class SentinelApiClient {
     private static final String DEGRADE_RULE_TYPE = "degrade";
     private static final String SYSTEM_RULE_TYPE = "system";
     private static final String AUTHORITY_TYPE = "authority";
+    private static final String PARAM_FLOW_RULE_TYPE = "param-flow";
 
     private CloseableHttpAsyncClient httpClient;
 
@@ -120,6 +122,8 @@ public class SentinelApiClient {
     
     @Autowired
     private AppManagement appManagement;
+    @Autowired(required = false)
+    private RedisRuleStore redisRuleStore;
 
     public SentinelApiClient() {
         IOReactorConfig ioConfig = IOReactorConfig.custom().setConnectTimeout(3000).setSoTimeout(10000)
@@ -342,8 +346,32 @@ public class SentinelApiClient {
         }
     }
     
-    private <T extends Rule> List<T> fetchRules(String ip, int port, String type, Class<T> ruleType) {
+    private boolean isRedisRuleStoreEnabled() {
+        return redisRuleStore != null && redisRuleStore.isEnabled();
+    }
+
+    /**
+     * When the Redis rule store is enabled, rules are read from Redis (shared by all machines of the app)
+     * instead of the machine itself.
+     */
+    private <T extends Rule> List<T> fetchRules(String app, String ip, int port, String type, Class<T> ruleType) {
+        if (isRedisRuleStoreEnabled()) {
+            try {
+                return fetchRulesFromRedis(app, type, ruleType);
+            } catch (Exception e) {
+                logger.error("Error when fetching rules from Redis: {} -> {}", app, type, e);
+                return null;
+            }
+        }
         return fetchItems(ip, port, GET_RULES_PATH, type, ruleType);
+    }
+
+    private <T> List<T> fetchRulesFromRedis(String app, String type, Class<T> ruleType) {
+        String rules = redisRuleStore.getRules(app, type);
+        if (StringUtil.isBlank(rules)) {
+            return new ArrayList<>();
+        }
+        return JSON.parseArray(rules, ruleType);
     }
     
     private boolean setRules(String app, String ip, int port, String type, List<? extends RuleEntity> entities) {
@@ -356,6 +384,11 @@ public class SentinelApiClient {
             AssertUtil.isTrue(port > 0, "Bad machine port");
             String data = JSON.toJSONString(
                     entities.stream().map(r -> r.toRule()).collect(Collectors.toList()));
+            if (isRedisRuleStoreEnabled()) {
+                redisRuleStore.publishRules(app, type, data);
+                logger.info("setRules to Redis: {} -> {}", app, type);
+                return true;
+            }
             Map<String, String> params = new HashMap<>(2);
             params.put("type", type);
             params.put("data", data);
@@ -392,7 +425,7 @@ public class SentinelApiClient {
     }
 
     public List<FlowRuleEntity> fetchFlowRuleOfMachine(String app, String ip, int port) {
-        List<FlowRule> rules = fetchRules(ip, port, FLOW_RULE_TYPE, FlowRule.class);
+        List<FlowRule> rules = fetchRules(app, ip, port, FLOW_RULE_TYPE, FlowRule.class);
         if (rules != null) {
             return rules.stream().map(rule -> FlowRuleEntity.fromFlowRule(app, ip, port, rule))
                 .collect(Collectors.toList());
@@ -402,7 +435,7 @@ public class SentinelApiClient {
     }
 
     public List<DegradeRuleEntity> fetchDegradeRuleOfMachine(String app, String ip, int port) {
-        List<DegradeRule> rules = fetchRules(ip, port, DEGRADE_RULE_TYPE, DegradeRule.class);
+        List<DegradeRule> rules = fetchRules(app, ip, port, DEGRADE_RULE_TYPE, DegradeRule.class);
         if (rules != null) {
             return rules.stream().map(rule -> DegradeRuleEntity.fromDegradeRule(app, ip, port, rule))
                 .collect(Collectors.toList());
@@ -412,7 +445,7 @@ public class SentinelApiClient {
     }
 
     public List<SystemRuleEntity> fetchSystemRuleOfMachine(String app, String ip, int port) {
-        List<SystemRule> rules = fetchRules(ip, port, SYSTEM_RULE_TYPE, SystemRule.class);
+        List<SystemRule> rules = fetchRules(app, ip, port, SYSTEM_RULE_TYPE, SystemRule.class);
         if (rules != null) {
             return rules.stream().map(rule -> SystemRuleEntity.fromSystemRule(app, ip, port, rule))
                 .collect(Collectors.toList());
@@ -435,6 +468,13 @@ public class SentinelApiClient {
             AssertUtil.notEmpty(app, "Bad app name");
             AssertUtil.notEmpty(ip, "Bad machine IP");
             AssertUtil.isTrue(port > 0, "Bad machine port");
+            if (isRedisRuleStoreEnabled()) {
+                return CompletableFuture.completedFuture(
+                    fetchRulesFromRedis(app, PARAM_FLOW_RULE_TYPE, ParamFlowRule.class).stream()
+                        .map(e -> ParamFlowRuleEntity.fromAuthorityRule(app, ip, port, e))
+                        .collect(Collectors.toList())
+                );
+            }
             return fetchItemsAsync(ip, port, GET_PARAM_RULE_PATH, null, ParamFlowRule.class)
                 .thenApply(rules -> rules.stream()
                     .map(e -> ParamFlowRuleEntity.fromAuthorityRule(app, ip, port, e))
@@ -461,7 +501,7 @@ public class SentinelApiClient {
         AssertUtil.isTrue(port > 0, "Bad machine port");
         Map<String, String> params = new HashMap<>(1);
         params.put("type", AUTHORITY_TYPE);
-        List<AuthorityRule> rules = fetchRules(ip, port, AUTHORITY_TYPE, AuthorityRule.class);
+        List<AuthorityRule> rules = fetchRules(app, ip, port, AUTHORITY_TYPE, AuthorityRule.class);
         return Optional.ofNullable(rules).map(r -> r.stream()
                     .map(e -> AuthorityRuleEntity.fromAuthorityRule(app, ip, port, e))
                     .collect(Collectors.toList())
@@ -525,6 +565,11 @@ public class SentinelApiClient {
             String data = JSON.toJSONString(
                 rules.stream().map(ParamFlowRuleEntity::getRule).collect(Collectors.toList())
             );
+            if (isRedisRuleStoreEnabled()) {
+                redisRuleStore.publishRules(app, PARAM_FLOW_RULE_TYPE, data);
+                logger.info("setParamFlowRules to Redis: {}", app);
+                return CompletableFuture.completedFuture(null);
+            }
             Map<String, String> params = new HashMap<>(1);
             params.put("data", data);
             return executeCommand(app, ip, port, SET_PARAM_RULE_PATH, params, true)
